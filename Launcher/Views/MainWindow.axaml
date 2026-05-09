@@ -1,0 +1,65 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Launcher.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+        x:Class="Launcher.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="Lelbry M&amp;B II Balance Launcher"
+        Width="900" Height="600"
+        WindowStartupLocation="CenterScreen">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto" Margin="16">
+
+        <TextBlock Grid.Row="0" Text="Lelbry Balance Fixes" FontSize="22" FontWeight="Bold" Margin="0,0,0,12"/>
+
+        <Grid Grid.Row="1" ColumnDefinitions="2*,*" >
+
+            <Border Grid.Column="0" BorderBrush="#3a3a3a" BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,0,8,0">
+                <Grid RowDefinitions="Auto,*">
+                    <TextBlock Grid.Row="0" Text="Правки баланса" FontWeight="Bold" Margin="0,0,0,8"/>
+                    <ScrollViewer Grid.Row="1">
+                        <ItemsControl ItemsSource="{Binding Fixes}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:FixViewModel">
+                                    <Border BorderBrush="#2a2a2a" BorderThickness="0,0,0,1" Padding="0,6">
+                                        <StackPanel>
+                                            <CheckBox IsChecked="{Binding IsEnabled}" Content="{Binding Title}" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding Description}" Margin="22,2,0,0" Foreground="#bbbbbb" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1" BorderBrush="#3a3a3a" BorderThickness="1" CornerRadius="4" Padding="8">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Настройки" FontWeight="Bold"/>
+
+                    <TextBlock Text="Путь к игре:" Margin="0,4,0,0"/>
+                    <TextBox Text="{Binding GamePath}" Watermark="E:\...\Mount &amp; Blade II Bannerlord"/>
+
+                    <TextBlock Text="Способ запуска:" Margin="0,4,0,0"/>
+                    <RadioButton GroupName="launch" Content="Прямой (Bannerlord.exe)" IsChecked="{Binding IsDirectMethod}"/>
+                    <RadioButton GroupName="launch" Content="Через Steam" IsChecked="{Binding IsSteamMethod}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <TextBlock Grid.Row="2" Text="{Binding StatusMessage}" Margin="0,8,0,0" Foreground="#ddd" TextWrapping="Wrap"/>
+
+        <Button Grid.Row="3" Content="Запустить Bannerlord"
+                Command="{Binding LaunchCommand}"
+                HorizontalAlignment="Right"
+                Padding="20,10" Margin="0,12,0,0"
+                FontWeight="Bold"/>
+    </Grid>
+</Window>
