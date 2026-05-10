@@ -85,6 +85,8 @@ Module/LelbryBalanceFixes/      — игровой мод (Harmony-патчи)
 - Лаунчер: `%APPDATA%/Launch_M-B2_by_Lelbry/launcher.json` (конфиг).
 - Мод: `%USERPROFILE%/Documents/Mount and Blade II Bannerlord/Logs/LelbryBalanceFixes.log`.
 
-## Лицензия
+## Вид версии приложений
 
-TBD.
+v.0.1.0 
+<img width="1119" height="778" alt="image" src="https://github.com/user-attachments/assets/23b9f7b0-83de-4f0b-8b82-cb5611050177" />
+
