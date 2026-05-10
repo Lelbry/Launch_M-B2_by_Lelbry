@@ -93,3 +93,6 @@ v.0.1.0
 v0.2.0
 <img width="1239" height="1004" alt="image" src="https://github.com/user-attachments/assets/f5f5ec75-a0dd-463e-b452-05d4af4ca3cf" />
 
+v1.0.0
+<img width="1230" height="964" alt="image" src="https://github.com/user-attachments/assets/4b435e31-568a-47f6-b20c-cf2bc40b60a5" />
+
