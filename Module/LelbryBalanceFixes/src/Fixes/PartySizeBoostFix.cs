@@ -1,8 +1,6 @@
 using System;
 using HarmonyLib;
-using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.Party;
-using TaleWorlds.Localization;
 
 namespace LelbryBalanceFixes.Fixes
 {
@@ -17,27 +15,31 @@ namespace LelbryBalanceFixes.Fixes
 
         public void Apply(Harmony harmony)
         {
-            // We patch PartyBase.PartySizeLimitExplainer (the ExplainedNumber getter) instead of
-            // a specific *Model.GetPartyMemberSizeLimit override, because Bannerlord swaps the
-            // active PartySizeLimitModel based on game mode + active modules:
-            //   - StoryMode → StoryModePartySizeLimitModel (campaign with story)
-            //   - NavalDLC active → NavalDLCPartySizeLimitModel (Sandbox-mode user)
-            //   - else → DefaultPartySizeLimitModel
-            // Patching only Default missed Sandbox + NavalDLC saves entirely. By patching the
-            // consumer-side getter on PartyBase, we catch every code path through PartySizeLimit
-            // regardless of which model is currently registered.
-            var target = AccessTools.PropertyGetter(typeof(PartyBase), nameof(PartyBase.PartySizeLimitExplainer));
+            // Why this target: Bannerlord 1.3.x has multiple PartySizeLimitModel implementations
+            // (Default / StoryMode / NavalDLC) that the campaign swaps in based on game mode and
+            // active modules. Patching any one of them silently misses other game modes.
+            //
+            // Earlier we tried PartyBase.PartySizeLimitExplainer (ExplainedNumber). It works for
+            // tooltips but the int property PartyBase.PartySizeLimit is computed by a *separate*
+            // call to the model with includeDescriptions=false — it does NOT read from the
+            // Explainer, so our Explainer postfix didn't propagate to the displayed number.
+            //
+            // Patching the int getter directly is the only single-spot fix that the UI actually
+            // sees. We add the bonus to __result here; the explanation tooltip won't show our
+            // contribution (small UX cost) but the limit number is consistent everywhere.
+            var target = AccessTools.PropertyGetter(typeof(PartyBase), nameof(PartyBase.PartySizeLimit));
             if (target == null)
             {
-                ModLog.Error("PartyBase.PartySizeLimitExplainer getter not found.");
+                ModLog.Error("PartyBase.PartySizeLimit getter not found.");
                 return;
             }
 
             var postfix = AccessTools.Method(typeof(PartySizeBoostFix), nameof(Postfix));
             harmony.Patch(target, postfix: new HarmonyMethod(postfix));
+            ModLog.Info("PartySizeBoostFix: patched PartyBase.PartySizeLimit getter.");
         }
 
-        public static void Postfix(PartyBase __instance, ref ExplainedNumber __result)
+        public static void Postfix(PartyBase __instance, ref int __result)
         {
             try
             {
@@ -47,19 +49,14 @@ namespace LelbryBalanceFixes.Fixes
                 int bonus = LiveConfig.PartySizeBonus;
                 if (bonus == 0) return;
 
-                // min-clamp — never let the resulting limit drop below MinTotal
-                float current = __result.ResultNumber;
-                if (current + bonus < MinTotal)
-                    bonus = (int)(MinTotal - current);
-
-                __result.Add(bonus, BoostText, null);
+                int newLimit = __result + bonus;
+                if (newLimit < MinTotal) newLimit = MinTotal;
+                __result = newLimit;
             }
             catch (Exception ex)
             {
                 ModLog.Error("PartySizeBoostFix postfix: " + ex.Message);
             }
         }
-
-        private static readonly TextObject BoostText = new TextObject("Lelbry: Party size boost");
     }
 }
