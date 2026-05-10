@@ -2,6 +2,7 @@ using System;
 using HarmonyLib;
 using TaleWorlds.CampaignSystem;
 using TaleWorlds.CampaignSystem.ComponentInterfaces;
+using TaleWorlds.CampaignSystem.MapEvents;
 using TaleWorlds.Core;
 
 namespace LelbryBalanceFixes.Fixes
@@ -9,22 +10,51 @@ namespace LelbryBalanceFixes.Fixes
     [BalanceFix(
         id: "full_loot",
         title: "Полный лут с врагов",
-        description: "Сильно увеличивает количество лута, выпадающего после битвы. Множитель и тумблер регулируются в Live Tuning. Дорогая экипировка падает в приоритете.")]
+        description: "Каждый убитый враг роняет до N предметов из своей экипировки (N = значение в Live Tuning). В первую очередь падает дорогая броня и оружие.")]
     public sealed class FullLootFix : IBalanceFix
     {
         public string Id => "full_loot";
 
         public void Apply(Harmony harmony)
         {
-            // Bannerlord 1.3.x swaps BattleRewardModel based on which modules are active:
-            //   - DefaultBattleRewardModel       (base)
-            //   - StoryModeBattleRewardModel     (campaign-with-story)
-            //   - NavalDLCBattleRewardModel      (Sandbox + Naval — Lelbry's case)
-            // We discover every concrete subclass at apply-time and patch each one's
-            // GetLootedItemFromTroop AND GetExpectedLootedItemValueFromCasualty.
+            // Two patches working together:
+            //
+            //  A) MapEvent.LootCasualtyCharacter — Prefix.
+            //     This is the actual loot loop: for each casualty, the game calls it with
+            //     a parameter `maxLootedItemsPerBodyForMainParty` capping how many items
+            //     can fall off this body. Vanilla typically passes 1, so you get
+            //     "8 items off 12 bandits". We bump that cap to LiveConfig.FullLootMultiplier
+            //     so the loop iterates many more times per casualty.
+            //
+            //  B) BattleRewardModel.GetLootedItemFromTroop — Postfix on every concrete
+            //     implementation (Default / StoryMode / NavalDLC + future).
+            //     If the per-iteration roll returned empty, we substitute the slot whose
+            //     item value is closest to the targetValue the game asked for, so the
+            //     loop never wastes an iteration AND the expensive gear gets pulled
+            //     first (Bannerlord's targetValue starts high, descends each iteration).
 
+            // --- A: cap-bumping prefix on the loot loop itself ---
+            var lootCasualtyMethod = AccessTools.Method(typeof(MapEvent), "LootCasualtyCharacter");
+            if (lootCasualtyMethod == null)
+            {
+                ModLog.Error("FullLoot: MapEvent.LootCasualtyCharacter not found — main loot multiplier disabled.");
+            }
+            else
+            {
+                try
+                {
+                    var prefix = AccessTools.Method(typeof(FullLootFix), nameof(LootCasualtyPrefix));
+                    harmony.Patch(lootCasualtyMethod, prefix: new HarmonyMethod(prefix));
+                    ModLog.Info("FullLoot: patched MapEvent.LootCasualtyCharacter (prefix).");
+                }
+                catch (Exception ex)
+                {
+                    ModLog.Error("FullLoot: LootCasualtyCharacter patch failed: " + ex.Message);
+                }
+            }
+
+            // --- B: per-item substitution across all BattleRewardModel implementations ---
             var perItemPostfix = AccessTools.Method(typeof(FullLootFix), nameof(PerItemPostfix));
-            var expectedValuePostfix = AccessTools.Method(typeof(FullLootFix), nameof(ExpectedValuePostfix));
             var baseType = typeof(BattleRewardModel);
             int patched = 0;
 
@@ -37,8 +67,18 @@ namespace LelbryBalanceFixes.Fixes
                     if (t == null || t.IsAbstract || t.IsInterface) continue;
                     if (!baseType.IsAssignableFrom(t)) continue;
 
-                    PatchIfPresent(harmony, t, "GetLootedItemFromTroop", perItemPostfix, ref patched);
-                    PatchIfPresent(harmony, t, "GetExpectedLootedItemValueFromCasualty", expectedValuePostfix, ref patched);
+                    var m = AccessTools.Method(t, "GetLootedItemFromTroop");
+                    if (m == null || m.DeclaringType != t) continue;
+                    try
+                    {
+                        harmony.Patch(m, postfix: new HarmonyMethod(perItemPostfix));
+                        ModLog.Info("FullLoot: patched " + t.FullName + ".GetLootedItemFromTroop");
+                        patched++;
+                    }
+                    catch (Exception ex)
+                    {
+                        ModLog.Error("FullLoot: failed to patch " + t.FullName + ": " + ex.Message);
+                    }
                 }
             }
 
@@ -46,49 +86,31 @@ namespace LelbryBalanceFixes.Fixes
                 ModLog.Error("FullLoot: no BattleRewardModel implementations found to patch.");
         }
 
-        private static void PatchIfPresent(Harmony harmony, Type t, string methodName, System.Reflection.MethodInfo postfix, ref int patched)
-        {
-            var m = AccessTools.Method(t, methodName);
-            if (m == null || m.DeclaringType != t) return;
-            try
-            {
-                harmony.Patch(m, postfix: new HarmonyMethod(postfix));
-                ModLog.Info("FullLoot: patched " + t.FullName + "." + methodName);
-                patched++;
-            }
-            catch (Exception ex)
-            {
-                ModLog.Error("FullLoot: failed to patch " + t.FullName + "." + methodName + ": " + ex.Message);
-            }
-        }
-
         /// <summary>
-        /// Postfix on GetExpectedLootedItemValueFromCasualty — multiplies the expected loot
-        /// value per casualty by LiveConfig.FullLootMultiplier. The game's loot loop uses this
-        /// expected value as a target sum: it keeps drawing items until accumulated worth ≥ target.
-        /// Bigger target → more iterations → more items per kill.
+        /// Bumps the per-body item cap to LiveConfig.FullLootMultiplier. The cap is the
+        /// upper bound on how many times the loot loop iterates per casualty, so this
+        /// is the actual lever for "how much loot you get".
         /// </summary>
-        public static void ExpectedValuePostfix(ref float __result)
+        public static void LootCasualtyPrefix(ref int maxLootedItemsPerBodyForMainParty)
         {
             try
             {
                 if (!LiveConfig.FullLootEnabled) return;
                 int mult = LiveConfig.FullLootMultiplier;
-                if (mult <= 1) return;
-                __result *= mult;
+                if (mult <= maxLootedItemsPerBodyForMainParty) return; // never reduce below vanilla
+                maxLootedItemsPerBodyForMainParty = mult;
             }
             catch (Exception ex)
             {
-                ModLog.Error("FullLootFix expected-value postfix: " + ex.Message);
+                ModLog.Error("FullLootFix loot-casualty prefix: " + ex.Message);
             }
         }
 
         /// <summary>
-        /// Postfix on GetLootedItemFromTroop — if the game returned empty, substitute a real
-        /// piece. We pick the slot whose item value is CLOSEST to the targetValue the game
-        /// asked for. Bannerlord's loot loop typically calls with descending targetValue (it
-        /// "spends" the expected pool from biggest items first), so this naturally yields the
-        /// most expensive armour/weapons in the early iterations and cheaper bits later.
+        /// If the game returned empty for this iteration, substitute a real piece.
+        /// We pick the slot whose item value is CLOSEST to the targetValue Bannerlord asked
+        /// for; the loop calls with descending targetValue (spending the expected pool
+        /// biggest-first), so this naturally pulls the most expensive armour first.
         /// </summary>
         public static void PerItemPostfix(CharacterObject character, float targetValue, ref EquipmentElement __result)
         {
@@ -119,7 +141,6 @@ namespace LelbryBalanceFixes.Fixes
                     }
                 }
 
-                // Fallback — if no items, leave __result empty (game'll skip)
                 if (bestDiff != int.MaxValue) __result = bestMatch;
             }
             catch (Exception ex)

@@ -97,20 +97,20 @@
                     <Grid ColumnDefinitions="Auto,Auto,*" RowDefinitions="Auto,Auto" Margin="0,4,0,0"
                           IsEnabled="{Binding FullLootEnabled}">
 
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Множитель количества лута:" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Макс. предметов с одного юнита:" VerticalAlignment="Center" Margin="0,0,12,0"/>
                         <NumericUpDown Grid.Row="0" Grid.Column="1"
                                        Value="{Binding FullLootMultiplier}"
                                        Minimum="1" Maximum="100" Increment="1" FormatString="0"
                                        Width="140"/>
-                        <TextBlock Grid.Row="0" Grid.Column="2" Text="× (1 = ванильный объём)"
+                        <TextBlock Grid.Row="0" Grid.Column="2" Text="шт. (1 = ванильное поведение)"
                                    VerticalAlignment="Center" Margin="8,0,0,0" Foreground="#888"/>
 
                         <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="6" Margin="0,8,0,0">
-                            <Button Content="×1"  Command="{Binding SetLootMultCommand}" CommandParameter="1"/>
-                            <Button Content="×5"  Command="{Binding SetLootMultCommand}" CommandParameter="5"/>
-                            <Button Content="×10" Command="{Binding SetLootMultCommand}" CommandParameter="10"/>
-                            <Button Content="×20" Command="{Binding SetLootMultCommand}" CommandParameter="20"/>
-                            <Button Content="×50" Command="{Binding SetLootMultCommand}" CommandParameter="50"/>
+                            <Button Content="1"  Command="{Binding SetLootMultCommand}" CommandParameter="1"/>
+                            <Button Content="5"  Command="{Binding SetLootMultCommand}" CommandParameter="5"/>
+                            <Button Content="10" Command="{Binding SetLootMultCommand}" CommandParameter="10"/>
+                            <Button Content="20" Command="{Binding SetLootMultCommand}" CommandParameter="20"/>
+                            <Button Content="50" Command="{Binding SetLootMultCommand}" CommandParameter="50"/>
                         </StackPanel>
                     </Grid>
 
