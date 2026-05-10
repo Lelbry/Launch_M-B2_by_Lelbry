@@ -18,6 +18,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     private string _statusMessage = string.Empty;
 
     public ObservableCollection<FixViewModel> Fixes { get; } = new();
+    public LiveTuningViewModel LiveTuning { get; } = new();
 
     public string GamePath
     {
@@ -26,6 +27,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         {
             this.RaiseAndSetIfChanged(ref _gamePath, value);
             this.RaisePropertyChanged(nameof(IsGamePathValid));
+            LiveTuning.SetState(_gamePath, _config.LiveTuning);
         }
     }
 
@@ -69,8 +71,16 @@ public sealed class MainWindowViewModel : ViewModelBase
         _launchMethod = _config.LaunchMethod;
 
         LoadFixes();
+        LiveTuning.SetState(_gamePath, _config.LiveTuning);
+        LiveTuning.Applied += OnLiveTuningApplied;
 
         LaunchCommand = ReactiveCommand.Create(LaunchGame, this.WhenAnyValue(x => x.IsGamePathValid));
+    }
+
+    private void OnLiveTuningApplied(LiveTuningConfig cfg)
+    {
+        _config.LiveTuning = cfg.Clone();
+        _config.Save();
     }
 
     private void LoadFixes()
@@ -102,14 +112,20 @@ public sealed class MainWindowViewModel : ViewModelBase
         try
         {
             var enabledIds = Fixes.Where(f => f.IsEnabled).Select(f => f.Id).ToList();
+            var liveTuning = new LiveTuningConfig
+            {
+                PartySizeBonus = LiveTuning.PartySizeBonus,
+                FullLootEnabled = LiveTuning.FullLootEnabled
+            };
 
             _config.GamePath = _gamePath;
             _config.LaunchMethod = _launchMethod;
             _config.EnabledFixIds = enabledIds;
+            _config.LiveTuning = liveTuning.Clone();
             _config.Save();
 
             StatusMessage = "Деплой мода…";
-            ModDeployer.Deploy(_gamePath, enabledIds);
+            ModDeployer.Deploy(_gamePath, enabledIds, liveTuning);
 
             StatusMessage = _launchMethod == LaunchMethod.Direct
                 ? "Запускаю Bannerlord…"

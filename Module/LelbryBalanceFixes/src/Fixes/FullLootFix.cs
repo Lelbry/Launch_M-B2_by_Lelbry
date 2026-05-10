@@ -7,7 +7,7 @@ namespace LelbryBalanceFixes.Fixes
     [BalanceFix(
         id: "full_loot",
         title: "Полный лут с врагов",
-        description: "Все экипированные предметы убитых врагов попадают в трофеи (шанс дропа = 100%).")]
+        description: "Все экипированные предметы убитых врагов попадают в трофеи (шанс дропа = 100%). Включается/выключается в Live Tuning панели.")]
     public sealed class FullLootFix : IBalanceFix
     {
         public string Id => "full_loot";
@@ -32,6 +32,7 @@ namespace LelbryBalanceFixes.Fixes
         {
             try
             {
+                if (!LiveConfig.FullLootEnabled) return;
                 if (lootAmount < 1f) lootAmount = 1f;
             }
             catch (Exception ex)

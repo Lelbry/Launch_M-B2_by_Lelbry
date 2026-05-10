@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using Launcher.Models;
 
 namespace Launcher.Services;
 
@@ -31,7 +32,7 @@ public static class ModDeployer
             $"Не найдена собранная DLL мода. Соберите проект {ModuleId} (dotnet build).");
     }
 
-    public static void Deploy(string gameDir, IEnumerable<string> enabledFixIds)
+    public static void Deploy(string gameDir, IEnumerable<string> enabledFixIds, LiveTuningConfig? liveTuning = null)
     {
         var modSrc = ResolveModSourceDir();
         var modulesDir = GamePathResolver.GetModulesDir(gameDir);
@@ -64,5 +65,10 @@ public static class ModDeployer
         var enabledList = enabledFixIds.ToList();
         var enabledJsonPath = Path.Combine(modDest, EnabledFile);
         File.WriteAllText(enabledJsonPath, JsonSerializer.Serialize(enabledList));
+
+        if (liveTuning != null)
+        {
+            LiveConfigDeployer.Write(gameDir, liveTuning);
+        }
     }
 }

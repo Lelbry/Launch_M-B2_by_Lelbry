@@ -1,11 +1,13 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace LelbryBalanceFixes
 {
     /// <summary>
-    /// Minimal JSON parser for a flat string array like ["id1","id2"].
-    /// Avoids pulling Newtonsoft/System.Text.Json into the mod (keeps deps slim).
+    /// Minimal JSON helpers — flat top-level objects and string arrays only.
+    /// Avoids pulling Newtonsoft / System.Text.Json into the mod (keeps deps slim).
     /// </summary>
     internal static class MiniJson
     {
@@ -59,6 +61,20 @@ namespace LelbryBalanceFixes
             }
 
             return result;
+        }
+
+        public static int? GetInt(string json, string key)
+        {
+            var m = Regex.Match(json, "\"" + Regex.Escape(key) + "\"\\s*:\\s*(-?\\d+)");
+            if (!m.Success) return null;
+            return int.TryParse(m.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v) ? v : (int?)null;
+        }
+
+        public static bool? GetBool(string json, string key)
+        {
+            var m = Regex.Match(json, "\"" + Regex.Escape(key) + "\"\\s*:\\s*(true|false)", RegexOptions.IgnoreCase);
+            if (!m.Success) return null;
+            return string.Equals(m.Groups[1].Value, "true", System.StringComparison.OrdinalIgnoreCase);
         }
 
         private static void SkipWs(string s, ref int i)

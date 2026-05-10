@@ -23,6 +23,9 @@ public sealed class LauncherConfig
     [JsonPropertyName("enabledFixIds")]
     public List<string> EnabledFixIds { get; set; } = new();
 
+    [JsonPropertyName("liveTuning")]
+    public LiveTuningConfig LiveTuning { get; set; } = new();
+
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         WriteIndented = true,

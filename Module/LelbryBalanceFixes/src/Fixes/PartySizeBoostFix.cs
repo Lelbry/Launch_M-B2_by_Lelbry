@@ -9,10 +9,11 @@ namespace LelbryBalanceFixes.Fixes
 {
     [BalanceFix(
         id: "party_size_boost",
-        title: "Расширение лимита отряда (+50)",
-        description: "Добавляет +50 к максимальному размеру отряда игрока.")]
+        title: "Расширение лимита отряда",
+        description: "Добавляет настраиваемый бонус к максимальному размеру отряда игрока. Регулируется в Live Tuning панели лаунчера.")]
     public sealed class PartySizeBoostFix : IBalanceFix
     {
+        private const int MinTotal = 5;
         public string Id => "party_size_boost";
 
         public void Apply(Harmony harmony)
@@ -35,10 +36,18 @@ namespace LelbryBalanceFixes.Fixes
         {
             try
             {
-                if (party != null && party.IsMobile && party.MobileParty != null && party.MobileParty.IsMainParty)
-                {
-                    __result.Add(50f, BoostText, null);
-                }
+                if (party == null || !party.IsMobile) return;
+                if (party.MobileParty == null || !party.MobileParty.IsMainParty) return;
+
+                int bonus = LiveConfig.PartySizeBonus;
+                if (bonus == 0) return;
+
+                // min-clamp — never let the resulting limit drop below MinTotal
+                float current = __result.ResultNumber;
+                if (current + bonus < MinTotal)
+                    bonus = (int)(MinTotal - current);
+
+                __result.Add(bonus, BoostText, null);
             }
             catch (Exception ex)
             {

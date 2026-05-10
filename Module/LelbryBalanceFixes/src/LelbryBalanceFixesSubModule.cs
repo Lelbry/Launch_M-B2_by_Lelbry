@@ -1,17 +1,18 @@
 using System;
 using System.IO;
-using System.Reflection;
 using HarmonyLib;
+using TaleWorlds.CampaignSystem;
+using TaleWorlds.Core;
 using TaleWorlds.MountAndBlade;
 
 namespace LelbryBalanceFixes
 {
     public sealed class LelbryBalanceFixesSubModule : MBSubModuleBase
     {
-        private const string ModuleId = "LelbryBalanceFixes";
         private const string HarmonyId = "lelbry.balance.fixes";
 
         private Harmony _harmony;
+        private string _moduleDir;
 
         protected override void OnSubModuleLoad()
         {
@@ -19,9 +20,10 @@ namespace LelbryBalanceFixes
 
             try
             {
-                var moduleDir = ResolveModuleDir();
-                var enabled = EnabledFixesConfig.Load(moduleDir);
+                _moduleDir = ResolveModuleDir();
+                LiveConfig.Init(_moduleDir);
 
+                var enabled = EnabledFixesConfig.Load(_moduleDir);
                 _harmony = new Harmony(HarmonyId);
 
                 int applied = 0;
@@ -44,7 +46,25 @@ namespace LelbryBalanceFixes
             }
             catch (Exception ex)
             {
-                ModLog.Error($"OnSubModuleLoad failed: {ex.Message}");
+                ModLog.Error("OnSubModuleLoad failed: " + ex.Message);
+            }
+        }
+
+        protected override void OnGameStart(Game game, IGameStarter gameStarterObject)
+        {
+            base.OnGameStart(game, gameStarterObject);
+
+            try
+            {
+                if (gameStarterObject is CampaignGameStarter starter && !string.IsNullOrEmpty(_moduleDir))
+                {
+                    starter.AddBehavior(new LiveStatusReporterBehavior(_moduleDir));
+                    ModLog.Info("LiveStatusReporterBehavior registered.");
+                }
+            }
+            catch (Exception ex)
+            {
+                ModLog.Error("OnGameStart failed: " + ex.Message);
             }
         }
 
