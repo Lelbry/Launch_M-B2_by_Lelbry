@@ -28,12 +28,15 @@ namespace LelbryBalanceFixes.Fixes
             harmony.Patch(target, prefix: new HarmonyMethod(prefix));
         }
 
-        public static void Prefix(ref float lootAmount)
+        // The actual parameter in DefaultBattleRewardModel.GetLootedItemFromTroop is named
+        // `targetValue` (verified by Bannerlord 1.3.15 metadata). Harmony binds Prefix params by
+        // name, so this MUST match the game's parameter name exactly — not "lootAmount".
+        public static void Prefix(ref float targetValue)
         {
             try
             {
                 if (!LiveConfig.FullLootEnabled) return;
-                if (lootAmount < 1f) lootAmount = 1f;
+                if (targetValue < 1f) targetValue = 1f;
             }
             catch (Exception ex)
             {

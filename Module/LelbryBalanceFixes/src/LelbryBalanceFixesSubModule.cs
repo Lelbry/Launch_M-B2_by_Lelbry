@@ -56,16 +56,27 @@ namespace LelbryBalanceFixes
 
             try
             {
+                ModLog.Info($"OnGameStart: gameStarter={gameStarterObject?.GetType().FullName ?? "null"}, moduleDir='{_moduleDir}'");
                 if (gameStarterObject is CampaignGameStarter starter && !string.IsNullOrEmpty(_moduleDir))
                 {
                     starter.AddBehavior(new LiveStatusReporterBehavior(_moduleDir));
                     ModLog.Info("LiveStatusReporterBehavior registered.");
+                }
+                else
+                {
+                    ModLog.Info("OnGameStart: not a CampaignGameStarter — status reporter not added.");
                 }
             }
             catch (Exception ex)
             {
                 ModLog.Error("OnGameStart failed: " + ex.Message);
             }
+        }
+
+        protected override void OnBeforeInitialModuleScreenSetAsRoot()
+        {
+            base.OnBeforeInitialModuleScreenSetAsRoot();
+            ModLog.Info("OnBeforeInitialModuleScreenSetAsRoot.");
         }
 
         private static string ResolveModuleDir()
