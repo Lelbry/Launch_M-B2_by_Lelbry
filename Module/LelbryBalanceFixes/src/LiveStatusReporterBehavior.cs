@@ -24,17 +24,27 @@ namespace LelbryBalanceFixes
 
         public override void RegisterEvents()
         {
+            ModLog.Info("LiveStatusReporter.RegisterEvents called.");
             CampaignEvents.OnSessionLaunchedEvent.AddNonSerializedListener(this, OnSessionLaunched);
             CampaignEvents.OnPartySizeChangedEvent.AddNonSerializedListener(this, OnPartySizeChanged);
             CampaignEvents.QuarterHourlyTickEvent.AddNonSerializedListener(this, WriteOnce);
 
             // wire up live-config reload → also push a fresh status snapshot
             LiveConfig.Reloaded += WriteOnce;
+
+            // Write an initial snapshot so the launcher can detect the game is alive
+            // even before the first quarter-hourly tick fires (some saves take a while).
+            WriteOnce();
         }
 
         public override void SyncData(IDataStore dataStore) { /* nothing to persist */ }
 
-        private void OnSessionLaunched(CampaignGameStarter starter) => WriteOnce();
+        private void OnSessionLaunched(CampaignGameStarter starter)
+        {
+            ModLog.Info("OnSessionLaunched.");
+            WriteOnce();
+        }
+
         private void OnPartySizeChanged(PartyBase party) => WriteOnce();
 
         public void WriteOnce()

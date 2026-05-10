@@ -7,9 +7,12 @@ public static class GameLauncher
 {
     private const string SteamAppId = "261550";
 
+    // NOTE: Bannerlord module IDs are case-sensitive. The folder is "SandBox" with capital 'B',
+    // and so is its Id in SubModule.xml. Passing "Sandbox" silently skips the module, which then
+    // breaks any dependent modules (incl. ours).
     private static readonly string[] DefaultModules =
     {
-        "Native", "SandBoxCore", "Sandbox", "StoryMode", "CustomBattle",
+        "Native", "SandBoxCore", "SandBox", "StoryMode", "CustomBattle",
         ModDeployer.ModuleId
     };
 

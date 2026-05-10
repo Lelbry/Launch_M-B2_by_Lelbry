@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Reactive;
 using System.Reactive.Linq;
 using Avalonia.Threading;
@@ -59,7 +60,9 @@ public sealed class LiveTuningViewModel : ViewModelBase, IDisposable
         private set => this.RaiseAndSetIfChanged(ref _liveHintText, value);
     }
 
-    public ReactiveCommand<int, Unit> AdjustPartySizeCommand { get; }
+    // Avalonia binds CommandParameter as string by default. Taking string here avoids a cast
+    // crash at click time (and lets the XAML stay simple — no x:Int32 wrappers needed).
+    public ReactiveCommand<string, Unit> AdjustPartySizeCommand { get; }
     public ReactiveCommand<Unit, Unit> ResetPartySizeCommand { get; }
     public ReactiveCommand<Unit, Unit> ApplyCommand { get; }
 
@@ -67,9 +70,19 @@ public sealed class LiveTuningViewModel : ViewModelBase, IDisposable
 
     public LiveTuningViewModel()
     {
-        AdjustPartySizeCommand = ReactiveCommand.Create<int>(d => { PartySizeBonus += d; });
+        AdjustPartySizeCommand = ReactiveCommand.Create<string>(s =>
+        {
+            if (int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var d))
+                PartySizeBonus += d;
+        });
         ResetPartySizeCommand = ReactiveCommand.Create(() => { PartySizeBonus = 0; });
         ApplyCommand = ReactiveCommand.Create(Apply, this.WhenAnyValue(x => x.GameDirValid));
+
+        // Without subscribing to ThrownExceptions, ReactiveUI rethrows on a default scheduler
+        // and the Avalonia process can die. Surface errors into the hint instead.
+        AdjustPartySizeCommand.ThrownExceptions.Subscribe(ex => AppliedAt = "Ошибка кнопки: " + ex.Message);
+        ResetPartySizeCommand.ThrownExceptions.Subscribe(ex => AppliedAt = "Ошибка Reset: " + ex.Message);
+        ApplyCommand.ThrownExceptions.Subscribe(ex => AppliedAt = "Ошибка Apply: " + ex.Message);
 
         _statusReader.Updated += () => Dispatcher.UIThread.Post(UpdateHint);
     }
