@@ -15,9 +15,11 @@ namespace LelbryBalanceFixes
 
         private static volatile int _partySizeBonus = 50;
         private static volatile bool _fullLootEnabled = true;
+        private static volatile int _fullLootMultiplier = 10;
 
         public static int PartySizeBonus => _partySizeBonus;
         public static bool FullLootEnabled => _fullLootEnabled;
+        public static int FullLootMultiplier => _fullLootMultiplier;
 
         public static event Action Reloaded;
 
@@ -70,13 +72,21 @@ namespace LelbryBalanceFixes
                 var raw = File.ReadAllText(path);
                 int? bonus = MiniJson.GetInt(raw, "partySizeBonus");
                 bool? fullLoot = MiniJson.GetBool(raw, "fullLootEnabled");
+                int? lootMult = MiniJson.GetInt(raw, "fullLootMultiplier");
 
                 if (bonus.HasValue)
                     Interlocked.Exchange(ref _partySizeBonus, bonus.Value);
                 if (fullLoot.HasValue)
                     _fullLootEnabled = fullLoot.Value;
+                if (lootMult.HasValue)
+                {
+                    int clamped = lootMult.Value;
+                    if (clamped < 1) clamped = 1;
+                    if (clamped > 100) clamped = 100;
+                    Interlocked.Exchange(ref _fullLootMultiplier, clamped);
+                }
 
-                ModLog.Info($"LiveConfig reloaded: bonus={_partySizeBonus}, fullLoot={_fullLootEnabled}");
+                ModLog.Info($"LiveConfig reloaded: bonus={_partySizeBonus}, fullLoot={_fullLootEnabled}, lootMult={_fullLootMultiplier}x");
 
                 try { Reloaded?.Invoke(); } catch { }
             }

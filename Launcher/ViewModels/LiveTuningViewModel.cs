@@ -19,6 +19,7 @@ public sealed class LiveTuningViewModel : ViewModelBase, IDisposable
 
     private int _partySizeBonus = 50;
     private bool _fullLootEnabled = true;
+    private int _fullLootMultiplier = 10;
     private LiveTuningConfig _applied = new();
     private string _appliedAt = string.Empty;
 
@@ -43,9 +44,21 @@ public sealed class LiveTuningViewModel : ViewModelBase, IDisposable
         }
     }
 
+    public int FullLootMultiplier
+    {
+        get => _fullLootMultiplier;
+        set
+        {
+            var clamped = Math.Max(1, Math.Min(100, value));
+            this.RaiseAndSetIfChanged(ref _fullLootMultiplier, clamped);
+            this.RaisePropertyChanged(nameof(IsDirty));
+        }
+    }
+
     public bool IsDirty =>
         _partySizeBonus != _applied.PartySizeBonus ||
-        _fullLootEnabled != _applied.FullLootEnabled;
+        _fullLootEnabled != _applied.FullLootEnabled ||
+        _fullLootMultiplier != _applied.FullLootMultiplier;
 
     public string AppliedAt
     {
@@ -64,6 +77,7 @@ public sealed class LiveTuningViewModel : ViewModelBase, IDisposable
     // crash at click time (and lets the XAML stay simple — no x:Int32 wrappers needed).
     public ReactiveCommand<string, Unit> AdjustPartySizeCommand { get; }
     public ReactiveCommand<Unit, Unit> ResetPartySizeCommand { get; }
+    public ReactiveCommand<string, Unit> SetLootMultCommand { get; }
     public ReactiveCommand<Unit, Unit> ApplyCommand { get; }
 
     public event Action<LiveTuningConfig>? Applied;
@@ -76,12 +90,18 @@ public sealed class LiveTuningViewModel : ViewModelBase, IDisposable
                 PartySizeBonus += d;
         });
         ResetPartySizeCommand = ReactiveCommand.Create(() => { PartySizeBonus = 0; });
+        SetLootMultCommand = ReactiveCommand.Create<string>(s =>
+        {
+            if (int.TryParse(s, NumberStyles.Integer, CultureInfo.InvariantCulture, out var v))
+                FullLootMultiplier = v;
+        });
         ApplyCommand = ReactiveCommand.Create(Apply, this.WhenAnyValue(x => x.GameDirValid));
 
         // Without subscribing to ThrownExceptions, ReactiveUI rethrows on a default scheduler
         // and the Avalonia process can die. Surface errors into the hint instead.
         AdjustPartySizeCommand.ThrownExceptions.Subscribe(ex => AppliedAt = "Ошибка кнопки: " + ex.Message);
         ResetPartySizeCommand.ThrownExceptions.Subscribe(ex => AppliedAt = "Ошибка Reset: " + ex.Message);
+        SetLootMultCommand.ThrownExceptions.Subscribe(ex => AppliedAt = "Ошибка множителя: " + ex.Message);
         ApplyCommand.ThrownExceptions.Subscribe(ex => AppliedAt = "Ошибка Apply: " + ex.Message);
 
         _statusReader.Updated += () => Dispatcher.UIThread.Post(UpdateHint);
@@ -95,11 +115,13 @@ public sealed class LiveTuningViewModel : ViewModelBase, IDisposable
         _applied = persisted.Clone();
         _partySizeBonus = persisted.PartySizeBonus;
         _fullLootEnabled = persisted.FullLootEnabled;
+        _fullLootMultiplier = persisted.FullLootMultiplier;
 
         _statusReader.SetGameDir(gameDir);
 
         this.RaisePropertyChanged(nameof(PartySizeBonus));
         this.RaisePropertyChanged(nameof(FullLootEnabled));
+        this.RaisePropertyChanged(nameof(FullLootMultiplier));
         this.RaisePropertyChanged(nameof(IsDirty));
         this.RaisePropertyChanged(nameof(GameDirValid));
         UpdateHint();
@@ -113,7 +135,8 @@ public sealed class LiveTuningViewModel : ViewModelBase, IDisposable
             var cfg = new LiveTuningConfig
             {
                 PartySizeBonus = _partySizeBonus,
-                FullLootEnabled = _fullLootEnabled
+                FullLootEnabled = _fullLootEnabled,
+                FullLootMultiplier = _fullLootMultiplier
             };
             LiveConfigDeployer.Write(_gameDir, cfg);
             _applied = cfg.Clone();

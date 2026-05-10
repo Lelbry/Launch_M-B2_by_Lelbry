@@ -123,7 +123,8 @@ public sealed class MainWindowViewModel : ViewModelBase
             var liveTuning = new LiveTuningConfig
             {
                 PartySizeBonus = LiveTuning.PartySizeBonus,
-                FullLootEnabled = LiveTuning.FullLootEnabled
+                FullLootEnabled = LiveTuning.FullLootEnabled,
+                FullLootMultiplier = LiveTuning.FullLootMultiplier
             };
 
             _config.GamePath = _gamePath;

@@ -10,12 +10,19 @@ public sealed class LiveTuningConfig
     [JsonPropertyName("fullLootEnabled")]
     public bool FullLootEnabled { get; set; } = true;
 
+    [JsonPropertyName("fullLootMultiplier")]
+    public int FullLootMultiplier { get; set; } = 10;
+
     public LiveTuningConfig Clone() => new()
     {
         PartySizeBonus = PartySizeBonus,
-        FullLootEnabled = FullLootEnabled
+        FullLootEnabled = FullLootEnabled,
+        FullLootMultiplier = FullLootMultiplier
     };
 
     public bool Equals(LiveTuningConfig? other) =>
-        other != null && PartySizeBonus == other.PartySizeBonus && FullLootEnabled == other.FullLootEnabled;
+        other != null
+        && PartySizeBonus == other.PartySizeBonus
+        && FullLootEnabled == other.FullLootEnabled
+        && FullLootMultiplier == other.FullLootMultiplier;
 }

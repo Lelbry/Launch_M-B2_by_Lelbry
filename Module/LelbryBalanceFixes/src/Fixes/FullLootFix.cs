@@ -9,15 +9,9 @@ namespace LelbryBalanceFixes.Fixes
     [BalanceFix(
         id: "full_loot",
         title: "Полный лут с врагов",
-        description: "Сильно увеличивает количество предметов, выпадающих с убитых врагов после битвы. Включается/выключается в Live Tuning.")]
+        description: "Сильно увеличивает количество лута, выпадающего после битвы. Множитель и тумблер регулируются в Live Tuning. Дорогая экипировка падает в приоритете.")]
     public sealed class FullLootFix : IBalanceFix
     {
-        // How much to multiply Bannerlord's "expected loot value per casualty" by.
-        // The game's loot loop iterates GetLootedItemFromTroop until accumulated item value
-        // reaches the expected value. Multiplying by ~10 gives roughly 10x more iterations,
-        // which in practice gives near-full equipment off each kill.
-        private const float ValueMultiplier = 10f;
-
         public string Id => "full_loot";
 
         public void Apply(Harmony harmony)
@@ -27,8 +21,7 @@ namespace LelbryBalanceFixes.Fixes
             //   - StoryModeBattleRewardModel     (campaign-with-story)
             //   - NavalDLCBattleRewardModel      (Sandbox + Naval — Lelbry's case)
             // We discover every concrete subclass at apply-time and patch each one's
-            // GetLootedItemFromTroop AND GetExpectedLootedItemValueFromCasualty so future
-            // model overrides from other mods get covered automatically.
+            // GetLootedItemFromTroop AND GetExpectedLootedItemValueFromCasualty.
 
             var perItemPostfix = AccessTools.Method(typeof(FullLootFix), nameof(PerItemPostfix));
             var expectedValuePostfix = AccessTools.Method(typeof(FullLootFix), nameof(ExpectedValuePostfix));
@@ -71,16 +64,18 @@ namespace LelbryBalanceFixes.Fixes
 
         /// <summary>
         /// Postfix on GetExpectedLootedItemValueFromCasualty — multiplies the expected loot
-        /// value per casualty by ValueMultiplier. The game's loot loop uses this expected
-        /// value as a target sum: it keeps drawing items until accumulated worth ≥ target.
-        /// Multiplying the target → more iterations → more items per kill.
+        /// value per casualty by LiveConfig.FullLootMultiplier. The game's loot loop uses this
+        /// expected value as a target sum: it keeps drawing items until accumulated worth ≥ target.
+        /// Bigger target → more iterations → more items per kill.
         /// </summary>
         public static void ExpectedValuePostfix(ref float __result)
         {
             try
             {
                 if (!LiveConfig.FullLootEnabled) return;
-                __result *= ValueMultiplier;
+                int mult = LiveConfig.FullLootMultiplier;
+                if (mult <= 1) return;
+                __result *= mult;
             }
             catch (Exception ex)
             {
@@ -89,12 +84,13 @@ namespace LelbryBalanceFixes.Fixes
         }
 
         /// <summary>
-        /// Postfix on GetLootedItemFromTroop — if the per-iteration roll returned an empty
-        /// slot, substitute a real piece from the troop's battle equipment so the iteration
-        /// isn't wasted. Combined with the bumped expected value above, every kill yields
-        /// most/all of the troop's gear.
+        /// Postfix on GetLootedItemFromTroop — if the game returned empty, substitute a real
+        /// piece. We pick the slot whose item value is CLOSEST to the targetValue the game
+        /// asked for. Bannerlord's loot loop typically calls with descending targetValue (it
+        /// "spends" the expected pool from biggest items first), so this naturally yields the
+        /// most expensive armour/weapons in the early iterations and cheaper bits later.
         /// </summary>
-        public static void PerItemPostfix(CharacterObject character, ref EquipmentElement __result)
+        public static void PerItemPostfix(CharacterObject character, float targetValue, ref EquipmentElement __result)
         {
             try
             {
@@ -105,31 +101,31 @@ namespace LelbryBalanceFixes.Fixes
                 var eq = character.RandomBattleEquipment ?? character.Equipment;
                 if (eq == null) return;
 
-                // Random slot pick to avoid always returning the same first non-empty slot
-                // (which Bannerlord's loop might dedupe if it sees the exact same element).
-                int start = UnityLikeRandom() % 12;
+                EquipmentElement bestMatch = default;
+                int bestDiff = int.MaxValue;
+                int targetInt = (int)targetValue;
+                int target = targetInt > 0 ? targetInt : 1;
+
                 for (int i = 0; i < 12; i++)
                 {
-                    int idx = (start + i) % 12;
-                    var element = eq.GetEquipmentFromSlot((EquipmentIndex)idx);
-                    if (!element.IsEmpty)
+                    var element = eq.GetEquipmentFromSlot((EquipmentIndex)i);
+                    if (element.IsEmpty) continue;
+                    int value = element.Item?.Value ?? 0;
+                    int diff = Math.Abs(value - target);
+                    if (diff < bestDiff)
                     {
-                        __result = element;
-                        return;
+                        bestDiff = diff;
+                        bestMatch = element;
                     }
                 }
+
+                // Fallback — if no items, leave __result empty (game'll skip)
+                if (bestDiff != int.MaxValue) __result = bestMatch;
             }
             catch (Exception ex)
             {
                 ModLog.Error("FullLootFix per-item postfix: " + ex.Message);
             }
-        }
-
-        // System.Random is shared so it's OK to use a single instance.
-        private static readonly Random Rng = new Random();
-        private static int UnityLikeRandom()
-        {
-            lock (Rng) return Rng.Next(0, 12);
         }
     }
 }
