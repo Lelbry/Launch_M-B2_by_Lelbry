@@ -20,17 +20,41 @@ public static class GameLauncher
         ModDeployer.ModuleId
     };
 
+    /// <summary>
+    /// Standard launch — plays with our mod active.
+    /// </summary>
     public static void Launch(string gameDir, LaunchMethod method)
+        => LaunchInternal(gameDir, method, withOurMod: true);
+
+    /// <summary>
+    /// Vanilla launch — plays the user's existing modules WITHOUT our mod added on top.
+    /// Useful for old saves that don't tolerate adding new modules to their module list:
+    /// Bannerlord's "module mismatch" reconciliation can stall on big saves, regardless of
+    /// whether our mod's patches are enabled. Use this to play those saves untouched.
+    /// </summary>
+    public static void LaunchWithoutOurMod(string gameDir, LaunchMethod method)
+        => LaunchInternal(gameDir, method, withOurMod: false);
+
+    private static void LaunchInternal(string gameDir, LaunchMethod method, bool withOurMod)
     {
-        // Make sure the official launcher knows about our mod and treats it as enabled.
-        // This matters for the Steam path (which uses LauncherData.xml directly) and is
-        // harmless for the Direct path.
-        LauncherDataReader.EnsureSingleplayerModuleEnabled(ModDeployer.ModuleId, OurModVersion);
+        if (withOurMod)
+        {
+            // Make sure the official launcher knows about our mod and treats it as enabled.
+            // This matters for the Steam path (which uses LauncherData.xml directly) and is
+            // harmless for the Direct path.
+            LauncherDataReader.EnsureSingleplayerModuleEnabled(ModDeployer.ModuleId, OurModVersion);
+        }
+        else
+        {
+            // Vanilla path — make sure our mod is OFF in LauncherData.xml so the Steam route
+            // also gives an unmodded experience.
+            LauncherDataReader.SetSingleplayerModuleEnabled(ModDeployer.ModuleId, enabled: false);
+        }
 
         switch (method)
         {
             case LaunchMethod.Direct:
-                LaunchDirect(gameDir);
+                LaunchDirect(gameDir, withOurMod);
                 break;
             case LaunchMethod.Steam:
                 LaunchViaSteam();
@@ -38,9 +62,9 @@ public static class GameLauncher
         }
     }
 
-    private static void LaunchDirect(string gameDir)
+    private static void LaunchDirect(string gameDir, bool withOurMod)
     {
-        var modules = BuildEffectiveModuleList();
+        var modules = BuildEffectiveModuleList(withOurMod);
         var exe = GamePathResolver.GetExePath(gameDir);
         var arg = "/singleplayer _MODULES_*" + string.Join("*", modules) + "*_MODULES_";
         var psi = new ProcessStartInfo(exe, arg)
@@ -53,21 +77,29 @@ public static class GameLauncher
 
     /// <summary>
     /// Reads the user's actual mod selection from LauncherData.xml so saves keep loading
-    /// (e.g. NavalDLC, BirthAndDeath, FastMode etc. that we don't know about). Adds our mod
-    /// to the end if it's not already in the list.
+    /// (e.g. NavalDLC, BirthAndDeath, FastMode etc. that we don't know about).
+    /// If <paramref name="includeOurMod"/> is true, appends LelbryBalanceFixes when missing;
+    /// otherwise strips it out, so existing saves can load untouched.
     /// </summary>
-    private static List<string> BuildEffectiveModuleList()
+    private static List<string> BuildEffectiveModuleList(bool includeOurMod)
     {
         var user = LauncherDataReader.ReadEnabledSingleplayerModules();
         if (user.Count == 0)
         {
-            return new List<string>(FallbackModules);
+            user = new List<string>(FallbackModules);
         }
 
-        var contains = false;
-        foreach (var m in user)
-            if (string.Equals(m, ModDeployer.ModuleId, StringComparison.Ordinal)) { contains = true; break; }
-        if (!contains) user.Add(ModDeployer.ModuleId);
+        if (includeOurMod)
+        {
+            var contains = false;
+            foreach (var m in user)
+                if (string.Equals(m, ModDeployer.ModuleId, StringComparison.Ordinal)) { contains = true; break; }
+            if (!contains) user.Add(ModDeployer.ModuleId);
+        }
+        else
+        {
+            user.RemoveAll(m => string.Equals(m, ModDeployer.ModuleId, StringComparison.Ordinal));
+        }
         return user;
     }
 

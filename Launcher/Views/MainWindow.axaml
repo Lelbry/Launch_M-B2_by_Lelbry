@@ -105,11 +105,16 @@
 
             <TextBlock Grid.Row="3" Text="{Binding StatusMessage}" Margin="0,12,0,0" Foreground="#ddd" TextWrapping="Wrap"/>
 
-            <Button Grid.Row="4" Content="Запустить Bannerlord"
-                    Command="{Binding LaunchCommand}"
-                    HorizontalAlignment="Right"
-                    Padding="20,10" Margin="0,12,0,0"
-                    FontWeight="Bold"/>
+            <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,12,0,0">
+                <Button Content="Запустить без мода (старые сейвы)"
+                        Command="{Binding LaunchVanillaCommand}"
+                        ToolTip.Tip="Запускает игру с твоими модами, но БЕЗ Lelbry Balance Fixes. Полезно для старых сейвов, которые не любят, когда в их список модулей добавляют новые."
+                        Padding="14,10"/>
+                <Button Content="Запустить Bannerlord"
+                        Command="{Binding LaunchCommand}"
+                        Padding="20,10"
+                        FontWeight="Bold"/>
+            </StackPanel>
         </Grid>
     </ScrollViewer>
 </Window>

@@ -58,6 +58,16 @@ public static class LauncherDataReader
     /// official TaleWorlds Launcher) see our mod with the box already ticked.
     /// </summary>
     public static void EnsureSingleplayerModuleEnabled(string moduleId, string version)
+        => SetSingleplayerModule(moduleId, enabled: true, version: version);
+
+    /// <summary>
+    /// Sets IsSelected for the given module; doesn't add an entry if it doesn't exist.
+    /// Used by the "Launch without our mod" path so the Steam route also sees us unchecked.
+    /// </summary>
+    public static void SetSingleplayerModuleEnabled(string moduleId, bool enabled)
+        => SetSingleplayerModule(moduleId, enabled, version: null);
+
+    private static void SetSingleplayerModule(string moduleId, bool enabled, string? version)
     {
         var path = GetPath();
         if (!File.Exists(path)) return;
@@ -79,17 +89,19 @@ public static class LauncherDataReader
 
             if (ours == null)
             {
+                if (!enabled) return; // nothing to do — module not registered, leaving as-is
                 ours = doc.CreateElement("UserModData");
                 AppendChild(doc, ours, "Id", moduleId);
-                AppendChild(doc, ours, "LastKnownVersion", version);
+                AppendChild(doc, ours, "LastKnownVersion", version ?? "v0.1.0");
                 AppendChild(doc, ours, "IsSelected", "true");
                 modDatas.AppendChild(ours);
             }
             else
             {
                 var sel = ours.SelectSingleNode("IsSelected") as XmlElement;
-                if (sel == null) AppendChild(doc, ours, "IsSelected", "true");
-                else sel.InnerText = "true";
+                var value = enabled ? "true" : "false";
+                if (sel == null) AppendChild(doc, ours, "IsSelected", value);
+                else sel.InnerText = value;
             }
 
             var tmp = path + ".tmp";

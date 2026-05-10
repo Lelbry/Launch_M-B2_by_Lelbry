@@ -63,6 +63,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     }
 
     public ReactiveCommand<Unit, Unit> LaunchCommand { get; }
+    public ReactiveCommand<Unit, Unit> LaunchVanillaCommand { get; }
 
     public MainWindowViewModel()
     {
@@ -75,6 +76,10 @@ public sealed class MainWindowViewModel : ViewModelBase
         LiveTuning.Applied += OnLiveTuningApplied;
 
         LaunchCommand = ReactiveCommand.Create(LaunchGame, this.WhenAnyValue(x => x.IsGamePathValid));
+        LaunchVanillaCommand = ReactiveCommand.Create(LaunchVanilla, this.WhenAnyValue(x => x.IsGamePathValid));
+
+        LaunchCommand.ThrownExceptions.Subscribe(ex => StatusMessage = "Ошибка: " + ex.Message);
+        LaunchVanillaCommand.ThrownExceptions.Subscribe(ex => StatusMessage = "Ошибка: " + ex.Message);
     }
 
     private void OnLiveTuningApplied(LiveTuningConfig cfg)
@@ -132,6 +137,26 @@ public sealed class MainWindowViewModel : ViewModelBase
                 : "Запускаю через Steam — поставьте галочку LelbryBalanceFixes в TaleWorlds Launcher.";
 
             GameLauncher.Launch(_gamePath, _launchMethod);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = "Ошибка: " + ex.Message;
+        }
+    }
+
+    private void LaunchVanilla()
+    {
+        try
+        {
+            _config.GamePath = _gamePath;
+            _config.LaunchMethod = _launchMethod;
+            _config.Save();
+
+            // Don't redeploy — vanilla launch is a "play my old saves untouched" mode.
+            // Existing deployed mod folder stays on disk; we just don't include it in
+            // the modules list passed to Bannerlord, and we untick it in LauncherData.xml.
+            StatusMessage = "Запускаю Bannerlord без нашего мода…";
+            GameLauncher.LaunchWithoutOurMod(_gamePath, _launchMethod);
         }
         catch (Exception ex)
         {
