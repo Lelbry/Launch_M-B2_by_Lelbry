@@ -90,3 +90,6 @@ Module/LelbryBalanceFixes/      — игровой мод (Harmony-патчи)
 v.0.1.0 
 <img width="1119" height="778" alt="image" src="https://github.com/user-attachments/assets/23b9f7b0-83de-4f0b-8b82-cb5611050177" />
 
+v0.2.0
+<img width="1239" height="1004" alt="image" src="https://github.com/user-attachments/assets/f5f5ec75-a0dd-463e-b452-05d4af4ca3cf" />
+
