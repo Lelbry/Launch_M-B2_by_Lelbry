@@ -116,7 +116,10 @@ public sealed class MainWindowViewModel : ViewModelBase
     {
         try
         {
-            var enabledIds = Fixes.Where(f => f.IsEnabled).Select(f => f.Id).ToList();
+            // All known fixes are always registered (their patches are essentially no-ops when
+            // the relevant Live Tuning value is "neutral": bonus=0 / full-loot=false). The top
+            // panel is now informational only — the user controls everything via Live Tuning.
+            var enabledIds = Fixes.Select(f => f.Id).ToList();
             var liveTuning = new LiveTuningConfig
             {
                 PartySizeBonus = LiveTuning.PartySizeBonus,

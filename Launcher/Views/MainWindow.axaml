@@ -22,16 +22,18 @@
             <Grid Grid.Row="1" ColumnDefinitions="2*,*" Height="280">
 
                 <Border Grid.Column="0" BorderBrush="#3a3a3a" BorderThickness="1" CornerRadius="4" Padding="8" Margin="0,0,8,0">
-                    <Grid RowDefinitions="Auto,*">
-                        <TextBlock Grid.Row="0" Text="Правки баланса" FontWeight="Bold" Margin="0,0,0,8"/>
-                        <ScrollViewer Grid.Row="1">
+                    <Grid RowDefinitions="Auto,Auto,*">
+                        <TextBlock Grid.Row="0" Text="Активные правки баланса" FontWeight="Bold" Margin="0,0,0,4"/>
+                        <TextBlock Grid.Row="1" Text="Управление — в панели «Тонкая настройка» ниже."
+                                   FontSize="11" Foreground="#888" Margin="0,0,0,8"/>
+                        <ScrollViewer Grid.Row="2">
                             <ItemsControl ItemsSource="{Binding Fixes}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:FixViewModel">
                                         <Border BorderBrush="#2a2a2a" BorderThickness="0,0,0,1" Padding="0,6">
                                             <StackPanel>
-                                                <CheckBox IsChecked="{Binding IsEnabled}" Content="{Binding Title}" FontWeight="SemiBold"/>
-                                                <TextBlock Text="{Binding Description}" Margin="22,2,0,0" Foreground="#bbbbbb" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold"/>
+                                                <TextBlock Text="{Binding Description}" Margin="0,2,0,0" Foreground="#bbbbbb" TextWrapping="Wrap"/>
                                             </StackPanel>
                                         </Border>
                                     </DataTemplate>
